@@ -1,0 +1,148 @@
+Name
+   nistime -- compare time of local clock with NIST time server
+
+Syntax
+   nistime  [ options ]
+
+Description
+   This program connects to the daytime service on the NIST time
+   server time_a.timefreq.bldrdoc.gov using tcp/ip port 13.  The 
+   time server returns the current time which is then compared 
+   with the time of the local clock. The difference may be used to 
+   adjust the time of the local clock.
+
+   NISTIME uses the timezone information set in the TZ variable to 
+   convert from UTC to local time.  Copy the value from one of your 
+   UNIX systems or create form "set TZ=CST6CDT" where the 6 represents
+   number of hours from UTC (6 for Central Time in the US).  Default
+   if no TZ is set is EST5EDT, Eastern Standard Time.
+
+Options
+   -m0		Do not display the received time message.  Only the 
+		time difference in seconds is written to the standard
+		output.  A positive value for the difference means 
+		that the local clock is fast with respect to NIST.
+
+   -m1 or -M	Display short time messages.
+
+   -m2		Display longer time messages.
+
+   -s0		Do not set the local clock.
+
+   -s1 or -S	Set the local clock if the server is healthy.
+
+   -s2		Set the local clock even if the server is not healthy.
+
+   -s3		Query operator before setting the clock. 
+
+	If no options are used, the default is -M -s3, but these
+defaults may be changed by editing the source code and changing 
+the values assigned to integers msg and set.  The local clock will
+not be adjusted if the measured time difference is 0.
+
+Message Format
+
+	The message received from NIST is shown below:
+
+                        D  L
+ MJD  YY MM DD HH MM SS ST S H  Adv.
+49010 93-01-23 22:01:22 00 0 0  50.0 UTC(NIST) * 
+
+
+The heading is not part of the message and is shown only
+to identify the parameters.  The first number is the date 
+expressed as a Modified Julian Day number (MJD), and the next 
+6 values give the Universal Coordinated date and time (formerly 
+called Greenwich Mean Time) as year, month, day, hour, minute and 
+second.
+
+	The eighth number is the daylight saving time flag, DST.
+It is based on the continental US system, which has transitions on
+the first Sunday in April and the last Sunday in October.
+
+DST =  0 means standard time is currently in effect.
+DST = 50 means daylight saving time is currently in effect.
+DST = 51 means the transition from standard time to daylight time is
+         at 2am local time today.
+DST =  1 means the transition from daylight time to standard time is
+         at 2am local time today.
+
+DST > 51 gives advance notice of the number of days to the transition 
+         to daylight time.  The DST parameter is decremented at 0000 
+         every day during this advance notice period, and the transition
+	 will occur when the parameter reaches 51 as discussed above.
+
+1 < DST < 50  gives advance notice of the number of days to the 
+              transition to standard time.  The DST parameter is 
+              decremented at 0000 every day during this advance 
+              notice period, and the transition will occur when the
+              parameter reaches 1 as discussed above.
+
+    The DST parameter is usually not needed for UNIX systems which 
+keep time internally using Universal Time. 
+
+	The next number is the leap second flag, LS.
+
+LS = 0 means no leap second is scheduled.
+
+LS = 1 means that a leap second is to be added as 23:59:60 on the
+       last day of the current month.  The last minute will therefore
+       be 61 seconds long. Leap seconds are usually added at the end
+       of either June or December.
+
+LS = 2 means that second 23:59:59 is to be dropped on the last day of 
+       the current month.  The second following 23:59:58 will be 00:00:00
+       of the next day.  This minute will therefore be 59 seconds 
+       long.  This situation is unlikely to be necessary in the
+       foreseeable future.
+
+	Note that leap seconds are inserted or deleted at the specified
+        Universal Times, while daylight savings transitions are always 
+        with respect to local time.
+        
+The health parameter, H, gives the health of the server:
+
+  H = 0 means that the server is healthy.
+
+  H = 1 means that the server is operating properly but that its
+        time may be in error by up to 5 seconds. This state should
+        change to fully healthy within 10 minutes.
+
+  H = 2 means that the server is operating properly but that its
+        time is known to be wrong by more than 5 seconds.  
+
+  H = 3 means that the hardware or software have failed and that the
+        time error is unknown.
+
+	The advance parameter, ADV, gives the time advance of the
+        transmissions, in milliseconds.  Each time packet is sent 
+        out early by this amount to compensate (approximately) for
+        the network delay.
+
+	The remaining characters on the line identify the time 
+        source and are included for compatibility with the ACTS 
+        time system.
+
+Restrictions
+
+	The local time is expected to be given as a number of 
+	seconds since 1 January 1970.
+
+Bugs
+
+	This version does not estimate the transmission delay 
+	in the network.  This is unlikely to be a limitation
+	over short distances since the time difference is  
+	rounded to the nearest second anyway.
+
+        The time is instantaneously reset using DosSetDateTime.  If 
+        the local clock was ahead of the standard, then time will be
+        momentarily non-monotonic.  This has the potential to screw
+        up file timestamps used in makefiles.  I don't think it is
+        worth the effort to create the equivalent of adjtime (2) to
+        avoid this problem.
+
+Files
+	nistime.exe		executable code with default connections
+	nistime.c		source code for main program.
+	makefile		compile and link commands.
